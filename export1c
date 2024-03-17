@@ -1,0 +1,58 @@
+<?php
+
+use Bitrix\Main\Web\HttpClient;
+
+require_once 'all_prolog.php';
+
+$log = new LogToFile('expot');
+$http = new HttpClient();
+$http->setTimeout(10);
+$http->query(
+    'GET',
+    'https:/******************?$format=json',
+);
+$mainResult = get_object_vars(json_decode($http->getResult()));
+$log->writeLog('начинаем пылесосить');
+foreach ($mainResult['value'] as $value) {
+    sleep(5);
+    $value = get_object_vars($value);
+    $method = urlencode($value['name']);
+    $string = '********************'.
+        $method.'?$format=json';
+    $repeat = true;
+    $count = 0;
+    $log->writeLog($value['name']);
+    while ($repeat) {
+        sleep(5);
+        $count++;
+        $http->query(
+            'GET',
+            $string,
+        );
+        $log->writeLog($http->getError());
+        $repeat = ($http->getStatus() != 200 && $count < 20);
+    }
+    if ($count == 1) {
+        $log->writeLog('вышли из цикла со статусом 200');
+        $result = get_object_vars(json_decode($http->getResult()));
+        if (!empty($result['value'])) {
+            $log->writeLog('=======================');
+            $log->writeLog($result['value']);
+        }
+    } elseif ($count > 1 and $count < 20) {
+        $log->writeLog('количество попыток: '.$count);
+        $log->writeLog('вышли из цикла со статусом 200');
+        $result = get_object_vars(json_decode($http->getResult()));
+        if (!empty($result['value'])) {
+            $log->writeLog('=======================');
+            $log->writeLog($result['value']);
+        }
+    } else {
+        $log->writeLog('Не удалось получить ответ');
+    }
+}
+
+$api = new \App\Integration\Api\TelegramApi('***********');
+$res = $api->sendMessage('Готово');
+
+require_once 'all_epilog.php';
